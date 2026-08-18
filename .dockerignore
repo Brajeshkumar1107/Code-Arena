@@ -1,0 +1,15 @@
+target/
+.idea/
+.mvn/
+tests/
+*.md
+.mvn/
+mvnw
+mvnw.cmd
+.git/
+.gitignore
+.gitattributes
+.env
+.env.*
+setup-vm.sh
+deploy.sh

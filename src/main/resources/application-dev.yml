@@ -1,0 +1,21 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+runner:
+  rate-limit:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.codexsphere.codearena: DEBUG

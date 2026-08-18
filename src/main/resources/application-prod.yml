@@ -1,0 +1,38 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# Production requirements (set externally):
+#   DB_URL            jdbc:mysql://<host>:3306/code_arena?useSSL=true&requireSSL=true
+#   DB_USERNAME       dedicated low-privilege DB user (never root)
+#   DB_PASSWORD       secret (from a secret manager)
+#   RUNNER_TOKEN      mandatory; runner must not start without it
+#   KAFKA_BOOTSTRAP_SERVERS  broker address
+runner:
+  security:
+    enabled: true
+    token: ${RUNNER_TOKEN:}
+
+  rate-limit:
+    enabled: true
+
+  environment: DOCKER
+
+logging:
+  level:
+    root: INFO
+    com.codexsphere.codearena: INFO

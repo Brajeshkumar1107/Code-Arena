@@ -1,0 +1,120 @@
+spring:
+  application:
+    name: codearena-runner-service
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: runner-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      max-poll-records: 1
+      properties:
+        spring.json.trusted.packages: "*"
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/code_arena}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: 8081
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+runner:
+
+  security:
+    enabled: true
+    token: ${RUNNER_TOKEN:}
+
+  environment: DOCKER
+
+  concurrency:
+    max-executions: 10
+    acquire-timeout-seconds: 60
+
+  limits:
+    max-source-code-bytes: 262144
+    max-test-cases: 20
+    max-input-bytes: 262144
+    max-expected-output-bytes: 262144
+
+  output-limits:
+    max-stdout-bytes: 1048576
+    max-stderr-bytes: 1048576
+
+  rate-limit:
+    enabled: true
+    max-requests: 30
+    window-seconds: 60
+    cleanup-interval-seconds: 300
+
+  docker:
+    host: ${DOCKER_HOST:}
+    memory-mb: 256
+    cpu-count: 1
+    pids-limit: 64
+    user: "1000:1000"
+    network-enabled: false
+    read-only-root-fs: true
+    tmpfs-size-mb: 64
+
+  languages:
+    java-image: eclipse-temurin:21-jdk
+    cpp-image: gcc:14
+    python-image: python:3.12
+    javascript-image: node:22
+
+  compile:
+    timeout: 10
+
+  workspace:
+    prefix: exec-
+    root-directory: ${WORKSPACE_ROOT:}
+
+  cleanup:
+    enabled: true
+
+  logging:
+    enabled: true
+
+  execution:
+    timeout: 2
+
+logging:
+  level:
+    root: INFO
+    com.codexsphere.codearena: INFO

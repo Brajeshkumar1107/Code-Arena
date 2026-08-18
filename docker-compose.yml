@@ -1,0 +1,82 @@
+version: "3.9"
+
+# Production-like local stack for the CodeArena Runner Service.
+#
+# The runner executes submissions in sandbox Docker containers that it creates
+# through the host Docker daemon (docker-outside-of-docker), so the host socket
+# is mounted into the runner container. Execution workspaces are created under
+# /var/lib/codearena/workspaces, which is a real host directory, so sandbox
+# containers can bind-mount them.
+#
+# Before starting:
+#   sudo mkdir -p /var/lib/codearena/workspaces
+#   sudo chown 1000:1000 /var/lib/codearena/workspaces
+#   export RUNNER_TOKEN=<a strong secret>
+#
+# Then: docker compose up -d --build
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-codearena_root}
+      MYSQL_DATABASE: code_arena
+      MYSQL_USER: codearena
+      MYSQL_PASSWORD: ${DB_PASSWORD:-codearena_root}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-codearena_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  kafka:
+    image: bitnami/kafka:3.7
+    restart: unless-stopped
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: broker,controller
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - kafka-data:/bitnami/kafka
+
+  runner:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://mysql:3306/code_arena?useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: codearena
+      DB_PASSWORD: ${DB_PASSWORD:-codearena_root}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN to a strong secret}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      WORKSPACE_ROOT: /var/lib/codearena/workspaces
+      JAVA_OPTS: ${JAVA_OPTS:--Xmx512m}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/codearena/workspaces:/var/lib/codearena/workspaces
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  mysql-data:
+  kafka-data:

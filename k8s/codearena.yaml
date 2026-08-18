@@ -1,0 +1,119 @@
+# CodeArena Runner - example manifests for Kubernetes.
+#
+# The runner talks to the Docker engine of the node it runs on
+# (docker-outside-of-docker) and creates sandbox containers directly.
+# Execution workspaces live on that node under /var/lib/codearena/workspaces.
+#
+# Prerequisites:
+#   * A MySQL server and a Kafka broker reachable from the cluster.
+#   * kubectl create secret generic codearena \
+#         --from-literal=runner-token='<strong-secret>' \
+#         --from-literal=db-password='<db-password>'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: codearena
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: codearena-config
+  namespace: codearena
+data:
+  DB_URL: "jdbc:mysql://mysql.codearena.svc.cluster.local:3306/code_arena?useSSL=false&allowPublicKeyRetrieval=true"
+  DB_USERNAME: "codearena"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka.codearena.svc.cluster.local:9092"
+  WORKSPACE_ROOT: "/var/lib/codearena/workspaces"
+  SPRING_PROFILES_ACTIVE: "prod"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: codearena-runner
+  namespace: codearena
+  labels:
+    app: codearena-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: codearena-runner
+  template:
+    metadata:
+      labels:
+        app: codearena-runner
+    spec:
+      serviceAccountName: codearena-runner
+      containers:
+        - name: runner
+          image: codexsphere/codearena-runner:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: codearena-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: codearena
+                  key: db-password
+            - name: RUNNER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: codearena
+                  key: runner-token
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          volumeMounts:
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: workspaces
+              mountPath: /var/lib/codearena/workspaces
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: workspaces
+          hostPath:
+            path: /var/lib/codearena/workspaces
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: codearena-runner
+  namespace: codearena
+spec:
+  selector:
+    app: codearena-runner
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: codearena-runner
+  namespace: codearena
