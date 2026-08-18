@@ -4,6 +4,7 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -12,6 +13,7 @@ import org.springframework.kafka.listener.MessageListenerContainer;
 import java.util.List;
 
 @Configuration
+@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaConsumerConfig {
 
     private static final Logger log =

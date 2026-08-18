@@ -1,0 +1,75 @@
+# CodeArena Runner - AWS Free Tier (t4g.small, 2 GB RAM)
+#
+# Lean stack: MySQL + Runner only (Kafka disabled to save ~300-500 MB).
+# Total memory: ~1 GB (leaves ~1 GB for OS + Docker + buffers).
+#
+# Prerequisites on the VM:
+#   sudo mkdir -p /var/lib/codearena/workspaces
+#   sudo chown 1000:1000 /var/lib/codearena/workspaces
+#
+# Deploy:
+#   docker compose -f docker-compose.aws.yml up -d --build
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-codearena_root}
+      MYSQL_DATABASE: code_arena
+      MYSQL_USER: codearena
+      MYSQL_PASSWORD: ${DB_PASSWORD:-codearena_root}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb_buffer_pool_size=128M
+      - --innodb_log_file_size=32M
+      - --max_connections=20
+      - --tmp_table_size=16M
+      - --max_heap_table_size=16M
+    volumes:
+      - mysql-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-codearena_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  runner:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://mysql:3306/code_arena?useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: codearena
+      DB_PASSWORD: ${DB_PASSWORD:-codearena_root}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN to a strong secret}
+      KAFKA_ENABLED: "false"
+      WORKSPACE_ROOT: /var/lib/codearena/workspaces
+      JAVA_OPTS: -Xmx384m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=50
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/codearena/workspaces:/var/lib/codearena/workspaces
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  mysql-data:

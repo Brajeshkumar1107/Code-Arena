@@ -1,3 +1,6 @@
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+
 spring:
   application:
     name: codearena-runner-service
