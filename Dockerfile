@@ -12,16 +12,6 @@ RUN mvn -B -DskipTests clean package
 # ---- Runtime stage ---------------------------------------------------------
 FROM eclipse-temurin:21-jre
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -u 1000 runner
-
-USER runner
-WORKDIR /app
-
-COPY --from=build /app/target/CodeArena-1.0.0.jar app.jar
-
 # Workspaces must live under a path that is identical on the host and inside
 # this container so the sandbox containers can bind-mount them. Mount a host
 # volume at /var/lib/codearena/workspaces and set WORKSPACE_ROOT accordingly.
@@ -30,7 +20,16 @@ ENV WORKSPACE_ROOT=/var/lib/codearena/workspaces \
     JAVA_OPTS=""
 
 RUN mkdir -p /var/lib/codearena/workspaces \
-    && chown runner:runner /var/lib/codearena/workspaces
+    && chown 1000:1000 /var/lib/codearena/workspaces
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+USER 1000:1000
+WORKDIR /app
+
+COPY --from=build /app/target/CodeArena-1.0.0.jar app.jar
 
 EXPOSE 8081
 

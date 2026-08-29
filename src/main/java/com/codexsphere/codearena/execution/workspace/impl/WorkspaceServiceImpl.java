@@ -129,6 +129,7 @@ public class WorkspaceServiceImpl
                             PosixFilePermission.GROUP_EXECUTE,
 
                             PosixFilePermission.OTHERS_READ,
+                            PosixFilePermission.OTHERS_WRITE,
                             PosixFilePermission.OTHERS_EXECUTE
                     );
 
