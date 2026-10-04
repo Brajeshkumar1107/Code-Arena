@@ -430,7 +430,8 @@ class DockerServiceImplTest {
                 stopCommand.exec()
         ).thenThrow(
                 mock(
-                        jakarta.ws.rs.NotFoundException.class
+                        com.github.dockerjava.api.exception
+                                .NotFoundException.class
                 )
         );
 
