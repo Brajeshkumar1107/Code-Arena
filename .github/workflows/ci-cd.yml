@@ -22,6 +22,8 @@ jobs:
           cache: maven
 
       - name: Build and test
+        env:
+           RUNNER_ENVIRONMENT: DOCKER
         run: mvn -B clean verify
 
   deploy:
