@@ -2,6 +2,7 @@
 
 A backend microservice that **compiles, runs, and judges user-submitted source code** inside hardened Docker containers. Built by [CodexSphere](https://codexsphere.com).
 
+![CI/CD](https://github.com/Brajeshkumar1107/Code-Arena/actions/workflows/ci-cd.yml/badge.svg?branch=master)
 ![Java](https://img.shields.io/badge/Java-21-E76F00?style=flat&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.0-6DB33F?style=flat&logo=springboot&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-28.x-2496ED?style=flat&logo=docker&logoColor=white)
@@ -34,6 +35,7 @@ CodeArena Runner is the execution engine for a competitive programming platform.
 - **Persistence** -- MySQL with Flyway migrations, execution logs and metrics
 - **Observability** -- Spring Boot Actuator + Prometheus metrics
 - **Kafka integration** -- Optional consumer for async submission processing
+- **CI/CD** -- GitHub Actions builds, tests, and deploys to the Oracle VM on every push to `master`
 - **Production-ready** -- Health checks, graceful shutdown, startup validation
 
 ---
@@ -357,6 +359,8 @@ curl -X POST http://localhost:8081/api/v1/runner/execute \
 | `JAVA_OPTS` | JVM options | -- |
 | `SPRING_PROFILES_ACTIVE` | Spring profile (`dev`, `prod`) | default |
 
+> **Caution:** do not set a `RUNNER_ENVIRONMENT` environment variable on a host that runs this service. Spring relaxed binding maps it onto `runner.environment` (the `ExecutionEnvironmentType` enum) and the application will fail to start. GitHub Actions sets this variable by default; the CI build step unsets it with `env -u`.
+
 ### Key Settings (`application.yml`)
 
 ```yaml
@@ -428,6 +432,76 @@ kubectl apply -f k8s/codearena.yaml
 
 See [k8s/codearena.yaml](k8s/codearena.yaml) for the full manifest.
 
+### CI/CD (GitHub Actions)
+
+Every push to `master` runs [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml), which has two jobs:
+
+| Job | Runner | What it does |
+|-----|--------|--------------|
+| **Build and Test** | `ubuntu-latest` | Checks out code, sets up Temurin JDK 21 with the Maven cache, then runs `mvn -B clean verify` |
+| **Deploy to Oracle VM** | `ubuntu-latest` | Runs only after Build and Test succeeds. SSHes into the Oracle VM, pulls `master`, rebuilds and restarts the runner container, then health-checks it |
+
+```
+push to master
+      |
+      v
+[Build and Test]  mvn -B clean verify
+      |
+      | success only
+      v
+[Deploy to Oracle VM]  git pull -> docker compose up -d --build runner -> curl health
+```
+
+**Required repository secrets** (Settings > Secrets and variables > Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `DEPLOY_HOST` | IP or hostname of the Oracle VM |
+| `DEPLOY_USER` | SSH user (for example `ubuntu`) |
+| `DEPLOY_SSH_KEY` | Private SSH key authorized on that VM |
+
+**Deploy script** (executed on the VM):
+
+```bash
+cd ~/Code-Arena
+git pull origin master
+docker compose -f docker-compose.aws.yml up -d --build runner
+sleep 10
+curl -f http://127.0.0.1:8081/actuator/health
+```
+
+#### Why the build step unsets `RUNNER_ENVIRONMENT`
+
+GitHub Actions exports `RUNNER_ENVIRONMENT=github-hosted` into every step. Spring Boot's relaxed binding maps that variable onto the `runner.environment` property, which is the `ExecutionEnvironmentType` enum (`LOCAL` / `DOCKER`). Binding therefore fails with:
+
+```
+No enum constant com.codexsphere.codearena.enums.ExecutionEnvironmentType.github-hosted
+```
+
+The build step strips the variable before Maven starts:
+
+```bash
+env -u RUNNER_ENVIRONMENT mvn -B clean verify
+```
+
+> This is a name collision between a GitHub-provided variable and the application's `runner.*` config prefix, not a test or build defect.
+
+#### Troubleshooting
+
+**Deploy fails with `iptables: No chain/target/match by that name`**
+The host's Docker NAT chain is missing or corrupted, so the runner container cannot publish port 8081 and never starts. Fix it on the VM:
+
+```bash
+sudo iptables -t nat -N DOCKER   # recreate the chain
+# or, more reliably:
+sudo systemctl restart docker
+```
+
+Then re-run the workflow.
+
+**Build fails on `runner.environment` binding**
+Confirm the build step still uses `env -u RUNNER_ENVIRONMENT`, and that no other job or step re-introduces the variable.
+
 ---
 
 ## Project Structure
@@ -471,6 +545,7 @@ Code-Arena/
 ├── deploy-aws.sh                           # AWS deploy script
 ├── setup-vm.sh                             # VM bootstrap script
 ├── k8s/codearena.yaml                      # Kubernetes manifests
+├── .github/workflows/ci-cd.yml             # CI/CD pipeline (build, test, deploy)
 └── pom.xml                                 # Maven build
 ```
 
@@ -584,6 +659,7 @@ WRONG_ANSWER / ACCEPTED  (lowest priority)
 - [run-mode-flow.md](run-mode-flow.md) -- Detailed RUN mode walkthrough
 - [judge-mode-flow.md](judge-mode-flow.md) -- Detailed JUDGE mode walkthrough
 - [DEPLOY-ORACLE.md](DEPLOY-ORACLE.md) -- Oracle Cloud deployment guide
+- [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) -- CI/CD pipeline definition
 
 ---
 
