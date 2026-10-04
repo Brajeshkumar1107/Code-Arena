@@ -23,7 +23,7 @@ jobs:
 
       - name: Build and test
         env:
-           RUNNER_ENVIRONMENT: DOCKER
+          CODEARENA_RUNNER_ENVIRONMENT: DOCKER
         run: mvn -B clean verify
 
   deploy:
