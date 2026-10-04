@@ -41,6 +41,11 @@ services:
       start_period: 30s
 
   runner:
+    # The image runs as uid/gid 1000 (Dockerfile USER) while the Docker socket
+    # is owned by root:998 with mode srw-rw----. Without this supplementary
+    # group the runner cannot open /var/run/docker.sock.
+    group_add:
+      - "998"
     build: .
     restart: unless-stopped
     depends_on:
