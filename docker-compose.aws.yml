@@ -32,7 +32,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 300M
+          memory: 768M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-codearena_root}"]
       interval: 10s
@@ -59,6 +59,7 @@ services:
       RUNNER_TOKEN: ${RUNNER_TOKEN:?set RUNNER_TOKEN to a strong secret}
       KAFKA_ENABLED: "false"
       WORKSPACE_ROOT: /var/lib/codearena/workspaces
+      DOCKER_HOST: unix:///var/run/docker.sock
       JAVA_OPTS: -Xmx384m -XX:MaxMetaspaceSize=128m -XX:+UseG1GC -XX:MaxGCPauseMillis=50
     deploy:
       resources:
