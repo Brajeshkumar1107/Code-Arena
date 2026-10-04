@@ -22,9 +22,13 @@ jobs:
           cache: maven
 
       - name: Build and test
+        # GitHub exports RUNNER_ENVIRONMENT=github-hosted. Spring relaxed
+        # binding maps that onto runner.environment, which is the
+        # ExecutionEnvironmentType enum, so context binding fails with
+        # "No enum constant ...github-hosted". Unset it for this step.
         env:
           CODEARENA_RUNNER_ENVIRONMENT: DOCKER
-        run: mvn -B clean verify
+        run: env -u RUNNER_ENVIRONMENT mvn -B clean verify
 
   deploy:
     name: Deploy to Oracle VM
