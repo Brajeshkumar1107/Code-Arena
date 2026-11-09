@@ -46,5 +46,18 @@ jobs:
             cd ~/Code-Arena
             git pull origin master
             docker compose -f docker-compose.aws.yml up -d --build runner
-            sleep 10
-            curl -f http://127.0.0.1:8081/actuator/health
+
+            for attempt in $(seq 1 60); do
+              if curl -fsS http://127.0.0.1:8081/actuator/health; then
+                echo "Runner is healthy."
+                exit 0
+              fi
+              echo "Waiting for runner to become healthy (attempt ${attempt}/60)..."
+              sleep 5
+            done
+
+            echo "Runner did not become healthy. Container status:"
+            docker compose -f docker-compose.aws.yml ps
+            echo "Recent runner logs:"
+            docker compose -f docker-compose.aws.yml logs --tail=200 runner
+            exit 1
