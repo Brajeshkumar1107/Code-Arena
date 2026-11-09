@@ -41,6 +41,10 @@ public class SecurityConfig {
                                 "/actuator/health"
                         ).permitAll()
 
+                        .requestMatchers(
+                                "/webhook"
+                        ).permitAll()
+
                         .anyRequest().authenticated()
                 )
 
