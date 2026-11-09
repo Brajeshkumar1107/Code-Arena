@@ -61,8 +61,8 @@ public class WebhookEvent {
     @Column(name = "filename", length = 255)
     private String filename;
 
-    @Lob
-    @Column(name = "payload_json")
+    
+    @Column(name = "payload_json", columnDefinition = "LONGTEXT")
     private String payloadJson;
 
     @Enumerated(EnumType.STRING)
