@@ -38,6 +38,9 @@ spring:
         jdbc:
           time_zone: UTC
 
+  flyway:
+    enabled: false
+
   autoconfigure:
     exclude:
       - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
@@ -122,3 +125,29 @@ logging:
   level:
     root: INFO
     com.codexsphere.codearena: INFO
+
+# ---------------------------------------------------------------------------
+# Tata Steel WhatsApp Chatbot module
+# All sensitive values are supplied through environment variables.
+# Never commit real credentials to Git.
+# ---------------------------------------------------------------------------
+whatsapp:
+  enabled: ${WHATSAPP_ENABLED:true}
+  api-version: ${WHATSAPP_API_VERSION:v21.0}
+  api-base-url: ${WHATSAPP_API_BASE_URL:https://graph.facebook.com}
+  access-token: ${WHATSAPP_ACCESS_TOKEN:}
+  phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+  business-account-id: ${WHATSAPP_BUSINESS_ACCOUNT_ID:}
+  app-secret: ${WHATSAPP_APP_SECRET:}
+  verify-token: ${WHATSAPP_VERIFY_TOKEN:}
+  webhook:
+    signature-verification-enabled: ${WHATSAPP_SIGNATURE_VERIFICATION_ENABLED:true}
+    max-retries: ${WHATSAPP_WEBHOOK_MAX_RETRIES:3}
+  conversation:
+    session-timeout-minutes: ${WHATSAPP_CONVERSATION_TIMEOUT_MINUTES:30}
+    max-text-length: ${WHATSAPP_MAX_TEXT_LENGTH:4096}
+
+tatasteel:
+  webhook:
+    retry-delay-ms: ${TATASTEEL_WEBHOOK_RETRY_DELAY_MS:300000}
+    retry-initial-delay-ms: ${TATASTEEL_WEBHOOK_RETRY_INITIAL_DELAY_MS:60000}
